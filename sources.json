@@ -1,0 +1,7 @@
+{
+    "StarDict": "https://192.168.1.4:8443/dict.html?q={word}",
+    "Youdao": "https://www.youdao.com/w/eng/{word}/",
+    "Wiktionary": "https://en.wiktionary.org/wiki/{word}",
+    "Google Define": "https://www.google.com/search?q=define+{word}",
+    "Cambridge": "https://dictionary.cambridge.org/dictionary/english/{word}"
+}

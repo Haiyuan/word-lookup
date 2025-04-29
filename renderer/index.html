@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Word Lookup</title>
+  <style>
+    body { margin: 0; font-family: system-ui; }
+    #toolbar { padding: 6px; display: flex; gap: 6px; align-items: center; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <select id="sourceSel"></select>
+    <input id="search" placeholder="Type or wait for CLI-push…" style="flex:1">
+    <button id="go">Go</button>
+  </div>
+  <div id="dictView" style="flex:1 1 0; background:#fff;"></div>
+  
+  <!-- 简易源管理模态 -->
+  <dialog id="mgr" style="width:400px;">
+    <h3>Manage Sources</h3>
+    <table id="tbl"></table>
+    <div style="margin-top:8px;text-align:right">
+      <button id="add">Add</button>
+      <button id="save">Save</button>
+      <button id="close">Close</button>
+    </div>
+  </dialog>
+
+<script src="renderer.js"></script>
+</body>
+</html>
