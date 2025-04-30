@@ -159,7 +159,7 @@ app.whenReady().then(() => {
   /* CLI 推词 */
   events.on('word', w => {
     if (!currentH) pendingWord = w;           // toolbar 高度未知
-    else           win.webContents.send('lookup-word', w);
+    else           win.webContents.send('lookup-from-cli', w);
   });
 
   /* 渲染端请求源列表 / 保存修改 */
