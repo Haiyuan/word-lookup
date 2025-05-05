@@ -6,6 +6,22 @@ import threading
 import urllib.parse
 from pathlib import Path
 
+import platform
+
+def get_app_support_dir(app_name: str) -> Path:
+    """Return platform‑appropriate per‑user application data directory."""
+    system = platform.system()
+    if system == "Darwin":
+        return Path.home() / "Library" / "Application Support" / app_name
+    elif system == "Windows":
+        appdata = os.getenv("APPDATA") or (Path.home() / "AppData" / "Roaming")
+        return Path(appdata) / app_name
+    else:
+        xdg = os.getenv("XDG_DATA_HOME")
+        if xdg:
+            return Path(xdg) / app_name
+        return Path.home() / ".local" / "share" / app_name
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLineEdit, QVBoxLayout, QWidget, QMenuBar,
     QDialog, QTableWidget, QTableWidgetItem, QPushButton, QHBoxLayout, QMessageBox
@@ -106,7 +122,7 @@ class LookupApp(QMainWindow):
         self.setWindowTitle("My Lookup Tool")
 
         # --- sources ---
-        app_support_dir = Path.home() / "Library" / "Application Support" / "word-lookup"
+        app_support_dir = get_app_support_dir("word-lookup")
         app_support_dir.mkdir(parents=True, exist_ok=True)
         self.sources_file = app_support_dir / "sources.json"
         self.sources: dict[str, str] = self.load_sources()
