@@ -28,6 +28,16 @@ function saveSources (sources) {
   fs.writeFileSync(SOURCES_FILE, JSON.stringify(sources, null, 2));
 }
 
+function isAllowedLookupURL (rawURL) {
+  if (typeof rawURL !== 'string' || !rawURL.trim()) return false;
+  try {
+    const parsed = new URL(rawURL);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 /* ---------- GUI ---------- */
 let win;
 let view          = null;  // BrowserView
@@ -40,7 +50,12 @@ function createWindow () {
   win = new BrowserWindow({
     width: 1024,
     height: 700,
-    webPreferences: { preload: path.join(__dirname, 'preload.js') }
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
   });
   win.loadFile(path.join(__dirname, 'renderer/index.html'));
 
@@ -59,7 +74,14 @@ function createWindow () {
     currentH = h;
 
     if (!view) {
-      view = new BrowserView({ webPreferences: { nodeIntegration: false } });
+      view = new BrowserView({
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true
+        }
+      });
+      view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
       view.webContents.setFrameRate(1);         // 开启离屏模式（帧率=1 → GPU off）
 
       // 若已有待加载 URL，先 load，再等 did-finish 后 attach
@@ -179,6 +201,11 @@ app.whenReady().then(() => {
 
   /* 渲染端让 BrowserView 导航 */
   ipcMain.on('load-url', (_, url) => {
+    if (!isAllowedLookupURL(url)) {
+      console.warn('[main] Blocked unsafe URL:', url);
+      return;
+    }
+
     if (viewAttached) {
       view.webContents.loadURL(url);
     } else if (view) {

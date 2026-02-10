@@ -21,10 +21,59 @@ const saveBtn= document.getElementById('save');
 const closeBtn= document.getElementById('close');
 
 let sources = {};
+let managerOpened = false;
 
 function rebuildSel() {
-  sel.innerHTML = Object.keys(sources).map(k =>
-    `<option value="${k}">${k}</option>`).join('');
+  sel.textContent = '';
+  Object.keys(sources).forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k;
+    sel.appendChild(opt);
+  });
+}
+
+function appendSourceRow(name = '', url = '') {
+  const tr = document.createElement('tr');
+  const nameTd = document.createElement('td');
+  const urlTd = document.createElement('td');
+  const actionTd = document.createElement('td');
+  const nameInput = document.createElement('input');
+  const urlInput = document.createElement('input');
+  const removeBtn = document.createElement('button');
+
+  nameInput.value = name;
+  urlInput.value = url;
+  removeBtn.type = 'button';
+  removeBtn.dataset.removeRow = '1';
+  removeBtn.textContent = 'x';
+
+  nameTd.appendChild(nameInput);
+  urlTd.appendChild(urlInput);
+  actionTd.appendChild(removeBtn);
+  tr.appendChild(nameTd);
+  tr.appendChild(urlTd);
+  tr.appendChild(actionTd);
+  tbl.appendChild(tr);
+}
+
+function rebuildManagerTable() {
+  tbl.textContent = '';
+  const head = document.createElement('tr');
+  ['Name', 'Template (%s)', ''].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    head.appendChild(th);
+  });
+  tbl.appendChild(head);
+
+  Object.entries(sources).forEach(([name, url]) => appendSourceRow(name, url));
+}
+
+function notifyManagerDone() {
+  if (!managerOpened) return;
+  managerOpened = false;
+  api.managerDone();
 }
 
 function loadURL(word) {
@@ -46,20 +95,17 @@ api.onLookup(word => {
 });
 
 api.onOpenMgr(() => {
-  // 重建表格
-  tbl.innerHTML = '<tr><th>Name</th><th>Template (%s)</th><th></th></tr>';
-  Object.entries(sources).forEach(([k, v]) => {
-    tbl.insertAdjacentHTML('beforeend',
-      `<tr><td><input value="${k}"></td><td><input value="${v}"></td><td><button>×</button></td></tr>`);
-  });
+  rebuildManagerTable();
+  managerOpened = true;
   dlg.showModal();
 });
 
 addBtn.onclick = () => {
-  tbl.insertAdjacentHTML('beforeend',
-    `<tr><td><input></td><td><input></td><td><button>×</button></td></tr>`);
+  appendSourceRow();
 };
-tbl.onclick = e => { if (e.target.tagName === 'BUTTON') e.target.closest('tr').remove(); };
+tbl.onclick = e => {
+  if (e.target.dataset.removeRow === '1') e.target.closest('tr').remove();
+};
 
 saveBtn.onclick = () => {
   const rows = Array.from(tbl.querySelectorAll('tr')).slice(1);
@@ -71,12 +117,9 @@ saveBtn.onclick = () => {
   rebuildSel();
   api.saveSources(sources);
   dlg.close();
-  api.managerDone();        // 🔔 让主进程把 BrowserView 挂回来
 };
-closeBtn.onclick = () => {   // 纯关闭也要通知一下
-  dlg.close();
-  api.managerDone();
-};
+closeBtn.onclick = () => { dlg.close(); };
+dlg.addEventListener('close', notifyManagerDone);
 
 api.onSourcesUpdated(s => { sources = s; rebuildSel(); });
 
@@ -84,7 +127,7 @@ function reportH () {
   const h = Math.round(
     document.getElementById('toolbar').getBoundingClientRect().bottom
   );
- console.log('[renderer] toolbar height =', h);
+  console.log('[renderer] toolbar height =', h);
   api.sendToolbarH(h);
 }
 window.addEventListener('resize',  reportH);
