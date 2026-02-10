@@ -4,12 +4,12 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "make": "electron-builder"
-  },
-  "dependencies": {
-    "electron": "^30.0.0"
+    "make": "electron-builder",
+    "check": "node --check main.js && node --check preload.js && node --check triggerLookup.js && node --check renderer/renderer.js",
+    "test": "npm run check"
   },
   "devDependencies": {
+    "electron": "^30.0.0",
     "electron-builder": "^24.13.0"
   }
 }
