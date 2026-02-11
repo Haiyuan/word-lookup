@@ -9,8 +9,9 @@ input.addEventListener('keydown', ev => {
     ev.stopPropagation();        // BrowserView 不应再处理
     return;
   }
-  // 对于可打印字符（空格 / 字母等）阻断向下冒泡
-  if (ev.key.length === 1 || ev.key === ' ') {
+  // 对于可打印字符（空格 / 字母等）阻断向下冒泡；保留 Cmd/Ctrl 等快捷键
+  const hasCommandModifier = ev.metaKey || ev.ctrlKey || ev.altKey;
+  if (!hasCommandModifier && (ev.key.length === 1 || ev.key === ' ')) {
     ev.stopPropagation();
   }
 }, true);
