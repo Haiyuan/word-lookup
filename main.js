@@ -13,6 +13,7 @@ const SOURCES_FILE = path.join(app.getPath('userData'), 'sources.json');
 const events = new EventEmitter();
 
 const PAD = 8;                 // BrowserView 再向下让 8px
+const MIN_TOOLBAR_HEIGHT = 30;
 
 /* ---------- 词典源持久化 ---------- */
 function loadSources () {
@@ -45,6 +46,80 @@ let currentH      = 0;     // 工具栏高度
 let pendingWord   = null;  // CLI 推送但 toolbarH 未到
 let pendingURL    = null;  // URL 尚未 attach 时排队
 let viewAttached  = false; // 是否已 setBrowserView
+let lastLookupURL = null;  // 记录最后一次导航目标
+
+function computeViewBounds () {
+  if (!win) return null;
+  const [w, h] = win.getContentSize();
+  const y = Math.max(0, currentH + PAD);
+  return { x: 0, y, width: Math.max(0, w), height: Math.max(1, h - y) };
+}
+
+function resizeView () {
+  if (!viewAttached || !view || view.webContents.isDestroyed()) return;
+  const bounds = computeViewBounds();
+  if (!bounds) return;
+  view.setBounds(bounds);
+}
+
+function attachView () {
+  if (!win || !view || viewAttached || view.webContents.isDestroyed()) return;
+  win.setBrowserView(view);
+  viewAttached = true;
+  resizeView();
+}
+
+function loadViewURL (targetView, url) {
+  if (!targetView || targetView.webContents.isDestroyed()) return;
+  void targetView.webContents.loadURL(url).catch(err => {
+    console.error('[main] Failed to load lookup URL:', err);
+  });
+}
+
+function createLookupView () {
+  if (view && !view.webContents.isDestroyed()) return view;
+
+  const createdView = new BrowserView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  view = createdView;
+  viewAttached = false;
+
+  createdView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  createdView.webContents.on('unresponsive', () => {
+    if (view !== createdView) return;
+    console.warn('[main] BrowserView unresponsive, reloading.');
+    createdView.webContents.reloadIgnoringCache();
+  });
+
+  createdView.webContents.on('render-process-gone', (_, details) => {
+    if (view !== createdView) return;
+    console.error('[main] BrowserView render process gone:', details.reason);
+    view = null;
+    viewAttached = false;
+    const recoverURL = pendingURL || lastLookupURL;
+    if (recoverURL && currentH >= MIN_TOOLBAR_HEIGHT) {
+      pendingURL = recoverURL;
+      createLookupView();
+    }
+  });
+
+  createdView.webContents.once('did-finish-load', attachView);
+  createdView.webContents.once('did-fail-load', attachView);
+
+  if (pendingURL) {
+    const queuedURL = pendingURL;
+    pendingURL = null;
+    loadViewURL(createdView, queuedURL);
+  }
+
+  return createdView;
+}
 
 function createWindow () {
   win = new BrowserWindow({
@@ -59,47 +134,19 @@ function createWindow () {
   });
   win.loadFile(path.join(__dirname, 'renderer/index.html'));
 
-  const resizeView = () => {
-    if (!viewAttached) return;
-    const [w, h] = win.getContentSize();
-    view.setBounds({ x: 0, y: currentH + PAD, width: w, height: h - currentH - PAD });
-  };
   win.on('resize', resizeView);
 
   /* 渲染端上报工具栏高度 —— 在此时创建 / 挂载 BrowserView */
   ipcMain.on('toolbar-height', (_, h) => {
     // console.log('[main] got toolbar height', h);
     // 高度为 0 或极小，说明页面样式尚未生效，忽略并等待下一次上报
-    if (h < 30 || h === currentH) return;
+    if (h < MIN_TOOLBAR_HEIGHT || h === currentH) return;
     currentH = h;
 
-    if (!view) {
-      view = new BrowserView({
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true
-        }
-      });
-      view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-      view.webContents.setFrameRate(1);         // 开启离屏模式（帧率=1 → GPU off）
-
-      // 若已有待加载 URL，先 load，再等 did-finish 后 attach
-      const attach = () => {
-        if (!viewAttached) {
-          win.setBrowserView(view);
-          view.webContents.setFrameRate(0);        // 恢复正常 on-screen 渲染
-          viewAttached = true;
-          resizeView();
-        }
-      };
-      view.webContents.once('did-finish-load', attach);
-      view.webContents.once('did-fail-load',  attach);
-
-      if (pendingURL) {
-        view.webContents.loadURL(pendingURL);
-        pendingURL = null;
-      }
+    if (!view || view.webContents.isDestroyed()) {
+      view = null;
+      viewAttached = false;
+      createLookupView();
     }
 
     // 若 view 已 attach（窗口 resize 后也会走这里）需重新布局
@@ -198,12 +245,10 @@ app.whenReady().then(() => {
 
   // 渲染端告诉我们 “对话框已关”，把 BrowserView 挂回去
   ipcMain.on('manager-done', () => {
-    if (view && !viewAttached) {
+    if (view && !viewAttached && !view.webContents.isDestroyed()) {
       win.setBrowserView(view);
       viewAttached = true;
-      // 恢复大小位置
-      const [w, h] = win.getContentSize();
-      view.setBounds({ x: 0, y: currentH + PAD, width: w, height: h - currentH - PAD });
+      resizeView();
     }
   });
 
@@ -213,17 +258,19 @@ app.whenReady().then(() => {
       console.warn('[main] Blocked unsafe URL:', url);
       return;
     }
+    pendingURL = url;
+    lastLookupURL = url;
 
-    if (viewAttached) {
-      view.webContents.loadURL(url);
-    } else if (view) {
-      // view 创建但未 attach：先 queue
-      pendingURL = url;
-      view.webContents.loadURL(url);
-    } else {
-      // 连 view 都未创建（toolbar 高度也许还未来）→ queue
-      pendingURL = url;
+    if (!view || view.webContents.isDestroyed()) {
+      view = null;
+      viewAttached = false;
+      if (currentH >= MIN_TOOLBAR_HEIGHT) createLookupView();
+      return;
     }
+
+    const queuedURL = pendingURL;
+    pendingURL = null;
+    loadViewURL(view, queuedURL);
   });
 });
 
