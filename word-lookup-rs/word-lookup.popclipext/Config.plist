@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+        "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Identifier</key>
+    <string>com.example.wordlookup</string>
+
+    <key>Name</key>
+    <string>Word Lookup</string>
+
+    <!-- 选中文本才出现按钮 -->
+    <key>Requirements</key>
+    <array><string>text</string></array>
+
+    <key>Actions</key>
+    <array>
+        <dict>
+            <!-- 如果不想显示图标，可省略；只保留 Title -->
+            <key>Title</key>
+            <string>Word Lookup</string>
+
+            <!-- ① 包脚本到扩展包；② 或引用绝对路径，但仍要用套壳脚本 -->
+            <key>Shell Script File</key>
+            <string>lookup_wrapper.sh</string>
+
+            <!-- 可选：显式指定解释器 -->
+            <key>Script Interpreter</key>
+            <string>/bin/bash</string>
+
+            <!-- 让 PopClip 等脚本执行完再继续（脚本 >100 ms 建议加） -->
+            <key>Long Running</key>
+            <true/>
+
+            <!-- 执行后把脚本输出粘贴回光标处 -->
+            <key>After</key>
+            <string>paste-result</string>
+        </dict>
+    </array>
+</dict>
+</plist>
