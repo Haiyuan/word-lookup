@@ -1,5 +1,5 @@
 use std::env;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::net::TcpListener;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -77,10 +77,6 @@ fn main() -> ExitCode {
         let word = String::from_utf8_lossy(&buffer).trim().to_string();
         if word.is_empty() {
             continue;
-        }
-
-        if let Err(err) = stream.write_all(b"OK") {
-            eprintln!("Ack write failed: {err}");
         }
 
         if let Err(err) = open_lookup(&word) {
