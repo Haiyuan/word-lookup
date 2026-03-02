@@ -1,6 +1,5 @@
 use std::env;
-use std::process::{Command, ExitCode, Stdio};
-use std::thread;
+use std::process::{Command, ExitCode};
 use std::time::Duration;
 
 use word_lookup_rs::{resolve_lookup_app_binary, send_word};
@@ -18,24 +17,23 @@ fn main() -> ExitCode {
     }
 
     let lookup_app = resolve_lookup_app_binary();
-    let spawn_result = Command::new(&lookup_app)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
-    if let Err(err) = spawn_result {
-        eprintln!("Failed to launch {}: {err}", lookup_app.display());
-        return ExitCode::from(1);
-    }
-
-    // Wait briefly for daemon socket to bind, then retry delivery.
-    for _ in 0..8 {
-        thread::sleep(Duration::from_millis(200));
-        if send_word(&word, Duration::from_millis(800)) {
-            return ExitCode::SUCCESS;
+    match Command::new(&lookup_app).arg(&word).status() {
+        Ok(status) => {
+            if status.success() {
+                ExitCode::SUCCESS
+            } else {
+                eprintln!(
+                    "lookup_app exited with status {}",
+                    status
+                        .code()
+                        .map_or_else(|| "unknown".to_string(), |code| code.to_string())
+                );
+                ExitCode::from(1)
+            }
+        }
+        Err(err) => {
+            eprintln!("Failed to launch {}: {err}", lookup_app.display());
+            ExitCode::from(1)
         }
     }
-
-    eprintln!("Failed to send lookup word after launching lookup_app.");
-    ExitCode::from(1)
 }

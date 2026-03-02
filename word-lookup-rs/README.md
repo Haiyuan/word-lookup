@@ -5,7 +5,8 @@ Rust rewrite of the Python lookup launcher workflow.
 ## Binaries
 
 - `lookup_app`: socket daemon on `127.0.0.1:5050`; receives a word and opens lookup URL.
-- `trigger_lookup`: sends a word to daemon; launches `lookup_app` if daemon is not running.
+  If started with a word argument and daemon delivery fails (for example, port occupied by another app), it does a direct one-shot lookup and exits.
+- `trigger_lookup`: sends a word to daemon first; if delivery fails, it runs `lookup_app <word>` as fallback.
 
 ## Build
 

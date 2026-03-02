@@ -1,5 +1,5 @@
 use std::env;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -32,13 +32,15 @@ fn main() -> ExitCode {
         if send_word(word, Duration::from_secs(1)) {
             return ExitCode::SUCCESS;
         }
-    }
 
-    // If daemon not running and there is an argument, handle it locally now.
-    if let Some(word) = arg_word.as_deref() {
-        if let Err(err) = open_lookup(word) {
-            eprintln!("{err}");
-        }
+        // Fallback path: if socket is occupied or daemon unavailable, do one-shot local lookup.
+        return match open_lookup(word) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("{err}");
+                ExitCode::from(1)
+            }
+        };
     }
 
     let sources = load_sources();
@@ -75,6 +77,10 @@ fn main() -> ExitCode {
         let word = String::from_utf8_lossy(&buffer).trim().to_string();
         if word.is_empty() {
             continue;
+        }
+
+        if let Err(err) = stream.write_all(b"OK") {
+            eprintln!("Ack write failed: {err}");
         }
 
         if let Err(err) = open_lookup(&word) {

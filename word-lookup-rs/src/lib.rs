@@ -1,8 +1,8 @@
 use std::env;
 use std::fmt::Write as _;
 use std::fs;
-use std::io::{self, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::io::{self, Read, Write};
+use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -93,7 +93,18 @@ pub fn send_word(word: &str, timeout: Duration) -> bool {
     }
 
     match TcpStream::connect_timeout(&socket_addr(), timeout) {
-        Ok(mut stream) => stream.write_all(word.as_bytes()).is_ok(),
+        Ok(mut stream) => {
+            let _ = stream.set_write_timeout(Some(timeout));
+            let _ = stream.set_read_timeout(Some(timeout));
+
+            if stream.write_all(word.as_bytes()).is_err() {
+                return false;
+            }
+            let _ = stream.shutdown(Shutdown::Write);
+
+            let mut ack = [0_u8; 2];
+            stream.read_exact(&mut ack).is_ok() && ack == *b"OK"
+        }
         Err(_) => false,
     }
 }
