@@ -1,3 +1,4 @@
 /node_modules
 /.gitrepo-backups/
 /dist/
+.guardgit/
