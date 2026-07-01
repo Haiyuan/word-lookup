@@ -10,6 +10,13 @@ const { EventEmitter } = require('events');
 const HOST = '127.0.0.1';
 const PORT = 5050;
 const SOURCES_FILE = path.join(app.getPath('userData'), 'sources.json');
+const HISTORY_FILE = path.join(app.getPath('userData'), 'history.json');
+const FAVORITES_FILE = path.join(app.getPath('userData'), 'favorites.json');
+
+function loadHistory () { try { return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8')); } catch { return []; } }
+function saveHistory (h) { fs.writeFileSync(HISTORY_FILE, JSON.stringify(h, null, 2)); }
+function loadFavorites () { try { return JSON.parse(fs.readFileSync(FAVORITES_FILE, 'utf8')); } catch { return []; } }
+function saveFavorites (f) { fs.writeFileSync(FAVORITES_FILE, JSON.stringify(f, null, 2)); }
 const events = new EventEmitter();
 
 const PAD = 8;                 // BrowserView 再向下让 8px
@@ -243,6 +250,10 @@ app.whenReady().then(() => {
   /* 渲染端请求源列表 / 保存修改 */
   ipcMain.handle('request-sources', () => loadSources());
   ipcMain.on('update-sources', (_, s) => saveSources(s));
+  ipcMain.handle('request-history', () => loadHistory());
+  ipcMain.on('update-history', (_, h) => saveHistory(h));
+  ipcMain.handle('request-favorites', () => loadFavorites());
+  ipcMain.on('update-favorites', (_, f) => saveFavorites(f));
 
   // 渲染端告诉我们 “对话框已关”，把 BrowserView 挂回去
   ipcMain.on('manager-done', () => {
@@ -250,6 +261,14 @@ app.whenReady().then(() => {
       win.setBrowserView(view);
       viewAttached = true;
       resizeView();
+    }
+  });
+
+  // 渲染端要求打开设置，卸下 BrowserView
+  ipcMain.on('open-settings', () => {
+    if (viewAttached) {
+      win.setBrowserView(null);
+      viewAttached = false;
     }
   });
 

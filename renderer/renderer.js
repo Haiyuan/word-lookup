@@ -2,6 +2,40 @@
 const sel   = document.getElementById('sourceSel');
 const input = document.getElementById('search');
 const btn   = document.getElementById('go');
+const starBtn = document.getElementById('starBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsDlg = document.getElementById('settingsDlg');
+const tabHistory = document.getElementById('tabHistory');
+const tabFavorites = document.getElementById('tabFavorites');
+const settingsList = document.getElementById('settingsList');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+
+let historyWords = [];
+let favoriteWords = [];
+let currentSettingsTab = 'History';
+
+Promise.all([api.reqHistory(), api.reqFavorites()]).then(([h, f]) => {
+  historyWords = h || [];
+  favoriteWords = f || [];
+});
+
+function updateStar() {
+  const w = input.value.trim();
+  starBtn.textContent = (w && favoriteWords.includes(w)) ? '★' : '☆';
+}
+
+starBtn.onclick = () => {
+  const w = input.value.trim();
+  if (!w) return;
+  if (favoriteWords.includes(w)) {
+    favoriteWords = favoriteWords.filter(x => x !== w);
+  } else {
+    favoriteWords.unshift(w);
+  }
+  api.saveFavorites(favoriteWords);
+  updateStar();
+  if (managerOpened && currentSettingsTab === 'Favorites') renderSettingsList();
+};
 // ---- 输入框：阻断 BrowserView 抢键盘，同时允许 Enter 直接查词 ----
 input.addEventListener('keydown', ev => {
   if (ev.key === 'Enter') {
@@ -77,7 +111,75 @@ function notifyManagerDone() {
   api.managerDone();
 }
 
+function renderSettingsList() {
+  settingsList.innerHTML = '';
+  const list = currentSettingsTab === 'History' ? historyWords : favoriteWords;
+  list.forEach(w => {
+    const li = document.createElement('li');
+    li.style.display = 'flex';
+    li.style.justifyContent = 'space-between';
+    li.style.padding = '4px 0';
+    li.style.borderBottom = '1px solid #f0f0f0';
+
+    const span = document.createElement('span');
+    span.textContent = w;
+    span.style.cursor = 'pointer';
+    span.style.flex = '1';
+    span.onclick = () => {
+      input.value = w;
+      loadURL(w);
+      settingsDlg.close();
+    };
+
+    const rmBtn = document.createElement('button');
+    rmBtn.textContent = 'x';
+    rmBtn.style.border = 'none';
+    rmBtn.style.background = 'transparent';
+    rmBtn.style.cursor = 'pointer';
+    rmBtn.onclick = () => {
+      if (currentSettingsTab === 'History') {
+        historyWords = historyWords.filter(x => x !== w);
+        api.saveHistory(historyWords);
+      } else {
+        favoriteWords = favoriteWords.filter(x => x !== w);
+        api.saveFavorites(favoriteWords);
+        updateStar();
+      }
+      renderSettingsList();
+    };
+
+    li.appendChild(span);
+    li.appendChild(rmBtn);
+    settingsList.appendChild(li);
+  });
+}
+
+function openSettings(tab) {
+  currentSettingsTab = tab;
+  tabHistory.style.color = tab === 'History' ? 'blue' : 'gray';
+  tabFavorites.style.color = tab === 'Favorites' ? 'blue' : 'gray';
+  renderSettingsList();
+  if (!managerOpened) {
+    api.openSettings();
+    managerOpened = true;
+    settingsDlg.showModal();
+  }
+}
+
+settingsBtn.onclick = () => openSettings('History');
+tabHistory.onclick = () => openSettings('History');
+tabFavorites.onclick = () => openSettings('Favorites');
+settingsCloseBtn.onclick = () => settingsDlg.close();
+settingsDlg.addEventListener('close', notifyManagerDone);
+
 function loadURL(word) {
+  if (word) {
+    historyWords = historyWords.filter(w => w !== word);
+    historyWords.unshift(word);
+    if (historyWords.length > 200) historyWords.length = 200;
+    api.saveHistory(historyWords);
+    updateStar();
+  }
   const tpl = sources[sel.value] || '{word}';
   // 同时兼容 {word} 与 %s 两种写法，方便以后混用
   const url = tpl

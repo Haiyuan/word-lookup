@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('api', {
   saveSources:     s  => ipcRenderer.send('update-sources', s),
   onSourcesUpdated:fn => ipcRenderer.on('sources-updated', (_, s) => fn(s)),
   managerDone:     () => ipcRenderer.send('manager-done'),
+  openSettings:    () => ipcRenderer.send('open-settings'),
   toMain:          url => ipcRenderer.send('load-url', url),
+  reqHistory:      () => ipcRenderer.invoke('request-history'),
+  saveHistory:     h  => ipcRenderer.send('update-history', h),
+  reqFavorites:    () => ipcRenderer.invoke('request-favorites'),
+  saveFavorites:   f  => ipcRenderer.send('update-favorites', f),
   sendToolbarH:    h   => ipcRenderer.send('toolbar-height', h),
 });

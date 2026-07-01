@@ -12,7 +12,9 @@
   <div id="toolbar">
     <select id="sourceSel"></select>
     <input id="search" placeholder="Type or wait for CLI-push…" style="flex:1" autofocus>
+    <button id="starBtn" title="Toggle Favorite" style="background:none;border:none;cursor:pointer;font-size:16px;outline:none;">☆</button>
     <button id="go">Go</button>
+    <button id="settingsBtn" title="Settings" style="background:none;border:none;cursor:pointer;font-size:16px;outline:none;">⚙️</button>
   </div>
   <div id="dictView" style="flex:1 1 0; background:#fff;"></div>
   
@@ -24,6 +26,22 @@
       <button id="add">Add</button>
       <button id="save">Save</button>
       <button id="close">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Settings / Favorites / History 模态 -->
+  <dialog id="settingsDlg" style="width:400px; height: 400px; border: 1px solid #ccc; border-radius: 8px;">
+    <div style="display:flex; flex-direction:column; height: 100%;">
+      <div style="display:flex; gap:16px; border-bottom:1px solid #eee; padding-bottom:8px;">
+        <h3 id="tabHistory" style="margin:0; cursor:pointer; color:blue;">History</h3>
+        <h3 id="tabFavorites" style="margin:0; cursor:pointer; color:gray;">Favorites</h3>
+      </div>
+      <div id="settingsContent" style="flex:1; overflow-y:auto; margin-top:10px;">
+        <ul id="settingsList" style="list-style:none; padding:0; margin:0;"></ul>
+      </div>
+      <div style="margin-top:8px;text-align:right">
+        <button id="settingsCloseBtn">Close</button>
+      </div>
     </div>
   </dialog>
 
